@@ -13,8 +13,6 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.action_chains import ActionChains # to scroll to an element
 from selenium.common.exceptions import NoSuchElementException
 
-
-
 def element_exists(xpath, driver):
     '''
     Returns whether or not a given element exists
@@ -37,15 +35,16 @@ def load_reviews(n, url, wait_time: int = 10):
     number of pages of reviews.
     '''
 
-    second_load_button_xpath = '/html/body/div[1]/div[2]/main/div[1]/div[2]/div[4]/div[5]/div/button/span[2]'
-    first_load_button_xpath = '/html/body/div[1]/div[2]/main/div[1]/div[2]/div[3]/div/div[5]/div[4]/a/span[1]'
+    #second_load_button_xpath = '/html/body/div[1]/div[2]/main/div[1]/div[2]/div[4]/div[5]/div/button/span[2]'
+    #first_load_button_xpath = '/html/body/div[1]/div[2]/main/div[1]/div[2]/div[3]/div/div[5]/div[4]/a/span[1]'
+    first_load_button_xpath = '/html/body/div[1]/div[2]/main/div[1]/div[2]/div[4]/div[4]/div/button/span[1]'
     close_button_xpath = '/html/body/div[3]/div/div[1]/div/div/button'
     whole_overlay_path = '/html/body/div[3]'
     first_page_height_subtraction = 2500
     headless_first_page_subtraction = 1900
    
     options = webdriver.ChromeOptions()
-    options.add_argument('--headless')
+    #options.add_argument('--headless')
 
     driver = webdriver.Chrome(options=options)
 
@@ -58,26 +57,21 @@ def load_reviews(n, url, wait_time: int = 10):
     i = 1
     while True and i < 2:
         # intial scroll height
-        scroll_height = driver.execute_script('return document.body.scrollHeight') - headless_first_page_subtraction
+        scroll_height = driver.execute_script('return document.body.scrollHeight')# - headless_first_page_subtraction
         try:
             driver.execute_script("window.scrollTo(0, " + str(scroll_height) + ");")
-            driver.save_screenshot('headless_scroll.png')
-            print(scroll_height)
             time.sleep(wait_time)
             button = driver.find_element(By.XPATH, first_load_button_xpath)
-            print('Found the primary button!')
             ActionChains(driver).move_to_element(button).click().perform()
-            print('Clicked the primary button')
             time.sleep(wait_time)
             i = i+1
         except Exception as e:
             if element_exists(whole_overlay_path, driver):
                 # click X button
-                print('Exited out of ad')
+                #print('Exited out of ad')
                 close_button = driver.find_element(By.XPATH, close_button_xpath)
                 ActionChains(driver).move_to_element(close_button).click().perform()
             else:
-                print("Issue with first 'load more' click. See error message for more:")
                 driver.save_screenshot('error shot.png')
                 print(e)
                 break
@@ -87,10 +81,8 @@ def load_reviews(n, url, wait_time: int = 10):
             try:
                 driver.execute_script("window.scrollTo(0, " + str(scroll_height) + ");")
                 time.sleep(wait_time)
-                button = driver.find_element(By.XPATH, second_load_button_xpath)
-                print('Found the secondary button!')
+                button = driver.find_element(By.XPATH, first_load_button_xpath)
                 ActionChains(driver).move_to_element(button).click().perform()
-                print('Clicked the secondary button')
                 time.sleep(wait_time)
                 i = i+1
             except Exception as e:
@@ -108,7 +100,7 @@ def load_reviews(n, url, wait_time: int = 10):
 
     return driver.page_source
 
-def grab_reveiwers_and_ratings(html):
+def grab_reviewers_and_ratings(html):
     '''
     This function parses html to extract reveiewer info. It takes a page_source as an input and
     It returns a pandas dataframe containing the url to the author's page as well as the
@@ -119,6 +111,7 @@ def grab_reveiwers_and_ratings(html):
 
     user_links = list()
     user_ratings = list()
+    user_reviews = list()
 
     #list of lists
     reviews = (soup.find('div', id='__next')
@@ -127,15 +120,32 @@ def grab_reveiwers_and_ratings(html):
             .find('div', class_='BookReviewsPage__gridContainer')
             .find('div', class_='BookReviewsPage__rightColumn')
             .find('div', class_='ReviewsList').find_all(class_= 'ReviewCard'))
+    i = 1
     for review in reviews:
-        user_links.append(review.find('a', class_ = 'Avatar Avatar--medium', href = True)['href'])
+        print(i)
+        try:
+            user_links.append(review.find('a', class_ = 'Avatar Avatar--medium', href = True)['href'])
+        except:
+            user_links.append('no user info')
+        try:
+            user_ratings.append(review.find('div', class_ = 'ShelfStatus').find('span', class_ = 'RatingStars RatingStars__small')['aria-label'])
+        except:
+            user_ratings.append('No Rating')
+        try:
+            user_reviews.append(review.find('section', class_ = 'ReviewCard__content').find('span', class_='Formatted').text)
+        except:
+            user_reviews.append('No review text')
 
-        user_ratings.append(review.find('span', class_ = 'RatingStars RatingStars__small')['aria-label'])
-    
-    data = pd.DataFrame({'user_links': user_links, 'user_ratings': user_ratings})
+        i = i + 1
+    data = pd.DataFrame({'user_links': user_links, 'user_ratings': user_ratings, 'review_text': user_reviews})
 
-    print(data.info())
+    return data
 
-url = 'https://www.goodreads.com/en/book/show/60194162'
+url = 'https://www.goodreads.com/en/book/show/60194162' + '/reviews'
 
-load_reviews(10, url, 2)
+page = load_reviews(10, url, 5)
+
+reviews = grab_reviewers_and_ratings(page)
+
+reviews.to_csv('demon_copperhead_review_info.csv')
+
