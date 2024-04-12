@@ -3,7 +3,7 @@ Description: This script is intended pulls urls and ratings of the top reviews o
 '''
 
 from bs4 import BeautifulSoup
-import selenium as sl
+#import selenium as sl
 from selenium import webdriver
 import pandas as pd
 from selenium.webdriver.common.by import By
@@ -35,13 +35,9 @@ def load_reviews(n, url, wait_time: int = 10):
     number of pages of reviews.
     '''
 
-    #second_load_button_xpath = '/html/body/div[1]/div[2]/main/div[1]/div[2]/div[4]/div[5]/div/button/span[2]'
-    #first_load_button_xpath = '/html/body/div[1]/div[2]/main/div[1]/div[2]/div[3]/div/div[5]/div[4]/a/span[1]'
-    first_load_button_xpath = '/html/body/div[1]/div[2]/main/div[1]/div[2]/div[4]/div[4]/div/button/span[1]'
+    first_load_button_xpath = '/html/body/div[1]/div[2]/main/div[1]/div[2]/div[5]/div[4]/div/button'
     close_button_xpath = '/html/body/div[3]/div/div[1]/div/div/button'
     whole_overlay_path = '/html/body/div[3]'
-    first_page_height_subtraction = 2500
-    headless_first_page_subtraction = 1900
    
     options = webdriver.ChromeOptions()
     #options.add_argument('--headless')
@@ -52,51 +48,42 @@ def load_reviews(n, url, wait_time: int = 10):
     driver.maximize_window()
 
     time.sleep(wait_time)
+    i = 1
 
     # initial click
-    i = 1
-    while True and i < 2:
-        # intial scroll height
-        scroll_height = driver.execute_script('return document.body.scrollHeight')# - headless_first_page_subtraction
+    while i <= n:
+        #print('Loading Page: ' + str(i))
+        #print('webpage length: ' + str(len(driver.page_source)))
+        if i == 90:
+            wait_time = wait_time + 2
+        # getting scroll height
+        scroll_height = driver.execute_script('return document.body.scrollHeight')
         try:
+            # scrolling down to bottom of page
             driver.execute_script("window.scrollTo(0, " + str(scroll_height) + ");")
-            time.sleep(wait_time)
+            time.sleep(wait_time) # waiting for button to load
+            # finding and navigating to button to click
             button = driver.find_element(By.XPATH, first_load_button_xpath)
+            # clicking the button
             ActionChains(driver).move_to_element(button).click().perform()
             time.sleep(wait_time)
             i = i+1
-        except Exception as e:
+        # handling pop-up ads
+        except Exception as e: 
             if element_exists(whole_overlay_path, driver):
                 # click X button
                 #print('Exited out of ad')
                 close_button = driver.find_element(By.XPATH, close_button_xpath)
                 ActionChains(driver).move_to_element(close_button).click().perform()
             else:
+                print('Unable to get to page ' + str(i) + ' of reviews.')
                 driver.save_screenshot('error shot.png')
                 print(e)
                 break
     
-        while True and i <= n:
-            scroll_height = driver.execute_script('return document.body.scrollHeight')
-            try:
-                driver.execute_script("window.scrollTo(0, " + str(scroll_height) + ");")
-                time.sleep(wait_time)
-                button = driver.find_element(By.XPATH, first_load_button_xpath)
-                ActionChains(driver).move_to_element(button).click().perform()
-                time.sleep(wait_time)
-                i = i+1
-            except Exception as e:
-                if element_exists(whole_overlay_path, driver):
-                    # click X button
-                    print('Exited out of ad')
-                    close_button = driver.find_element(By.XPATH, close_button_xpath)
-                    ActionChains(driver).move_to_element(close_button).click().perform()
-                else:
-                    print('Unable to get to page ' + str(i) + ' of reviews.')
-                    driver.save_screenshot('error shot.png')
-                    print(e)
-                    break
     time.sleep(wait_time)
+    #print('webpage length: ' + str(len(driver.page_source)))
+    #print(len(driver.page_source))
 
     return driver.page_source
 
@@ -121,8 +108,9 @@ def grab_reviewers_and_ratings(html):
             .find('div', class_='BookReviewsPage__rightColumn')
             .find('div', class_='ReviewsList').find_all(class_= 'ReviewCard'))
     i = 1
+    #print('number of reviews: ' + str(len(reviews)))
     for review in reviews:
-        print(i)
+        #print(i)
         try:
             user_links.append(review.find('a', class_ = 'Avatar Avatar--medium', href = True)['href'])
         except:
@@ -141,11 +129,18 @@ def grab_reviewers_and_ratings(html):
 
     return data
 
-url = 'https://www.goodreads.com/en/book/show/60194162' + '/reviews'
+'''url = 'https://www.goodreads.com/book/show/44318414-the-dutch-house' + '/reviews'
 
-page = load_reviews(10, url, 5)
+page = load_reviews(10, url, 3)
+
+print(len(page))
+
+print('reviews loaded!')
 
 reviews = grab_reviewers_and_ratings(page)
+print('reviews saved!')
+reviews.to_csv('the_dutch_house_review_info.csv')
 
-reviews.to_csv('demon_copperhead_review_info.csv')
+reviews_in_csv = pd.read_csv('the_dutch_house_review_info.csv')
 
+print('number of reviews saved:' + str(len(reviews_in_csv)))'''
