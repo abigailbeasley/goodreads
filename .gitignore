@@ -10,3 +10,6 @@ scrape_goodreads/8300563_bookshelf_data.csv
 /scraping_data
 /scraping_data
 /book_recommender/sentiment_analysis
+/book_recommender/analysis and model/data
+book_recommender/analysis and model/dashboard.py
+*.csv
