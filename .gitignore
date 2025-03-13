@@ -1,3 +1,12 @@
 
 .DS_Store
 scraping_data/venv/lib/python3.12/site-packages/selenium/webdriver/common/devtools/v85/animation.py
+book_recommender/analysis and model/Secret_history_recs.csv
+/book_recommender/data_collection
+/data
+/gcp_export
+scrape_goodreads/8300563_bookshelf_data.csv
+/scrape_goodreads
+/scraping_data
+/scraping_data
+/book_recommender/sentiment_analysis
