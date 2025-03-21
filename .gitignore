@@ -15,3 +15,4 @@ book_recommender/analysis and model/dashboard.py
 *.csv
 book_recommender/analysis and model/dimensionality_reduction.ipynb
 *.pyc
+/scraping_data
