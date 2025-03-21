@@ -16,3 +16,9 @@ book_recommender/analysis and model/dashboard.py
 book_recommender/analysis and model/dimensionality_reduction.ipynb
 *.pyc
 /scraping_data
+/scraping_data/user_libraries
+book_recommender/preprocessing.py
+book_recommender/preprocessing_data.ipynb
+book_recommender/review_sentiment_analysis.ipynb
+book_recommender/scrape_metadata_recs.py
+book_recommender/standardizing_data.ipnyb
