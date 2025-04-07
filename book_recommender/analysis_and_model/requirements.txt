@@ -1,0 +1,10 @@
+pandas
+numpy
+tensorflow
+tensorflow_probability
+tf_keras
+matplotlib
+seaborn
+scipy
+regex
+plotly
