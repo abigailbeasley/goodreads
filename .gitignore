@@ -22,3 +22,5 @@ book_recommender/preprocessing_data.ipynb
 book_recommender/review_sentiment_analysis.ipynb
 book_recommender/scrape_metadata_recs.py
 book_recommender/standardizing_data.ipnyb
+/gcp_model_export/export_venv
+gcp_model_export/civic-shell-419721-7cdc0617e59d.json
