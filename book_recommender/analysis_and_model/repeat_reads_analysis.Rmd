@@ -1,0 +1,194 @@
+---
+title: "Repeat Reads Analysis"
+author: "Abigail Beasley"
+date: "2025-03-15"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load libraries, warnings=FALSE}
+library(lme4)
+library(lmerTest)
+library(ggplot2)
+library(tidyverse)
+library(pastecs)
+library(mgcv)
+```
+
+
+```{r load data}
+data = read.csv('data/first_books_rated.csv')
+```
+
+```{r basic cleaning}
+data$repeat_author <- factor(data$repeat_author, levels = c(0, 1), labels = c('One Book', 'Multiple Books'))
+data$book_tag <- factor(data$book_tag)
+data$user_id <- factor(data$user_id)
+```
+
+```{r summary stats}
+user_freq <- data %>%
+  count(user_id) %>%
+  arrange(desc(n)) 
+user_freq
+
+book_freq <- data %>%
+  count(book_tag) %>%
+  arrange(desc(n)) 
+book_freq
+
+user_freq_hist <- ggplot(user_freq, aes(x = n)) +
+  geom_histogram(binwidth = 1, fill = "steelblue", color = "black") +
+  labs(title = "Distribution of User Frequencies", x = "Number of Books Rated per User", y = "Count of Users") +
+  theme_minimal()
+
+book_freq_hist <- ggplot(book_freq, aes(x = n)) +
+  geom_histogram(binwidth = 1, fill = "steelblue", color = "black") +
+  labs(title = "Distribution of Book Frequencies", x = "Number of Times Book Rated", y = "Count of Books") +
+  theme_minimal()
+
+summary(book_freq['n'])
+summary(user_freq['n'])
+```
+
+```{r plotting proportions}
+plot_props <- ggplot(data, aes(x=repeat_author, y=liked_book)) +
+  stat_summary(fun=mean, geom='bar',fill='lightblue', color='black') +
+  stat_summary(fun.data=mean_cl_normal, geom='errorbar', color='Red', width=.2) +
+  labs(title = 'Proportion of Positive Ratings by Post-Read User-Author Interaction',
+       x= 'Books Read by Author',
+       y= 'Proportion of Liked Books' ) + 
+  theme_classic()
+plot_props
+```
+
+```{r plotting mean ratings}
+avg_rating_by_interaction_type <- ggplot(data, aes(x=repeat_author, y=rating)) +
+  stat_summary(fun=mean, geom='bar',fill='lightblue', color='black') +
+  stat_summary(fun.data=mean_cl_normal, geom='errorbar', color='Red', width=.2) +
+  labs(title = 'Average Book Rating By Post-Read User-Author Interaction',
+       y='Average Book Rating',
+       x= 'Books Read by Author') +
+  scale_x_discrete(labels = c('0' = 'No Follow-Up Interaction', '1' = 'Read More Books by Author')) +
+  theme_classic()
+avg_rating_by_interaction_type
+```
+
+```{r}
+rating_proportions <- data %>%
+  group_by(repeat_author, rating) %>%
+  tally() %>%
+  group_by(repeat_author) %>%
+  mutate(proportion = n / sum(n)) %>%
+  ungroup()
+
+# Convert rating to an ordered factor (from 1 to 5)
+rating_proportions$rating <- factor(rating_proportions$rating,
+                                    levels = c(5, 4, 3, 2, 1), ordered = TRUE)
+
+# Create the stacked bar chart with percentages
+ggplot(rating_proportions, aes(x = factor(repeat_author), y = proportion, fill = factor(rating))) +
+  geom_bar(stat = "identity", position = "stack", color = "black") +
+  geom_text(aes(label = scales::percent(proportion)), position = position_stack(vjust = 0.5), color = "black") +  # Add percentage labels
+  scale_fill_viridis_d(name = "Rating", labels = c("5", "4", "3", "2", "1")) +  # Rating labels
+  labs(title = 'Proportions of Ratings by Follow-up Interaction with Author',
+       x = 'Follow-up Interaction with Author',
+       y = 'Proportion of Ratings') +
+  theme_classic()
+```
+```{r}
+data['rating_avg'] = data$rating - data$average_user_rating
+# plotting number of books by author and book ratings
+avg_rating_books_read <- ggplot(data, aes(x=rating_avg, y=num_books_read_by_author)) +
+  geom_point(color='orange') +
+  labs(title='Number of books Read by Author and Rating Delta',
+       x='Rating Delta from user Average',
+       y='Number of Books Read by Author') +
+  theme_classic()
+
+avg_rating_books_read
+```
+
+```{r}
+sample_data <- function(data, condition_col, n_samples = 10000) {
+
+  # Split the data by the condition (repeat_author)
+  data_split <- split(data, data[[condition_col]])
+  
+  # Sample n_samples rows from each condition
+  sampled_data <- lapply(data_split, function(df) {
+    if(nrow(df) < n_samples) {
+      # If there are fewer than n_samples, just return all rows
+      return(df)
+    } else {
+      # Sample n_samples rows
+      return(df[sample(nrow(df), n_samples), ])
+    }
+  })
+  
+  # Combine the sampled data back into one data frame
+  sampled_data <- do.call(rbind, sampled_data)
+  
+  return(sampled_data)
+}
+
+```
+
+```{r}
+# Sample 10,000 rows from each condition of repeat_author
+sampled_data <- sample_data(data, condition_col = "repeat_author", n_samples = 10000)
+
+# View the first few rows of the sampled data
+head(sampled_data)
+
+```
+
+```{r build model}
+
+# Install and load mgcv if necessary
+# install.packages("mgcv")
+library(mgcv)
+
+# Fit a GAM model to predict rating
+gam_model <- gam(rating ~ s(average_user_rating) + repeat_author, data = data)
+
+# View the summary of the model
+summary(gam_model)
+
+# Plot the smooth terms
+plot(gam_model)
+```
+
+```{r}
+logLik(model)[1]
+```
+#### Are random effects normally distributed?
+
+```{r}
+# Extract user and book random effects
+user_effects <- ranef(model)$user_id[, 1]  # Extract random intercepts for users
+book_effects <- ranef(model)$book_tag[, 1]  # Extract random intercepts for books
+```
+
+```{r}
+
+# User-specific effects
+ggplot(data.frame(effect = user_effects), aes(x = effect)) +
+  geom_histogram(aes(y = ..density..), bins = 30, fill = "steelblue", color = "black") +
+  geom_density(color = "red", size = 1) +
+  labs(title = "Distribution of User-Specific Random Effects", x = "User Random Effect", y = "Density") +
+  theme_minimal()
+
+# Book-specific effects
+ggplot(data.frame(effect = book_effects), aes(x = effect)) +
+  geom_histogram(aes(y = ..density..), bins = 30, fill = "orange", color = "black") +
+  geom_density(color = "red", size = 1) +
+  labs(title = "Distribution of Book-Specific Random Effects", x = "Book Random Effect", y = "Density") +
+  theme_minimal()
+
+```
+
+#### Linearity of Log-Odds
